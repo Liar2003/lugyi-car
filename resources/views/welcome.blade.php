@@ -8,9 +8,10 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <title>Lugyi + Admin</title>
         <link rel="stylesheet" href="{{ asset('assets/style.css') }}">
-        <script src="{{ asset('assets/script.js') }}"></script>
+       
 
     <body>
         <div id="root"></div>
+        <script src="{{ asset('assets/script.js') }}"></script>
       </body>
 </html>
