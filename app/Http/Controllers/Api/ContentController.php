@@ -14,12 +14,37 @@ use App\Models\Suggestion;
 
 class ContentController extends Controller
 {
+    public function search(Request $request)
+    {
+        $search = $request->input('q');
+        $perPage = (int) $request->query('per_page', 6);
+        $page = (int) $request->query('page', 1);
+
+        $contents = Content::when($search, function ($query, $search) {
+            return $query->where('title', 'like', "%{$search}%")
+                ->orWhere('content', 'like', "%{$search}%");
+        })->select('id', 'title', 'profileImg', 'coverImg', 'content', 'tags', 'isvip', 'created_at')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page);
+        return response()->json([
+            'search' => $search,
+            'contents' => $contents->items(),
+            'pagination' => [
+                'total' => $contents->total(),
+                'per_page' => $contents->perPage(),
+                'current_page' => $contents->currentPage(),
+                'last_page' => $contents->lastPage(),
+                'from' => $contents->firstItem(),
+                'to' => $contents->lastItem()
+            ]
+        ]);
+    }
     public function getHomeContents(Request $request)
     {
         $perPage = (int) $request->query('per_page', 6);
         $page = (int) $request->query('page', 1);
 
-        $categories = ['jav' => 'Jav', 'thai' => 'Thai', 'chinese' => 'Chinese', 'mm_sub' => 'MMsub', 'usa' => 'USA', 'korea' => 'Korea'];
+        $categories = ['jav' => 'Jav', 'thai' => 'Thai', 'chinese' => 'Chinese', 'mm_sub' => 'MMsub', 'usa' => 'USA', 'korea' => 'Korea', "movies"=> "Movie"];
 
         $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
         $results = [];

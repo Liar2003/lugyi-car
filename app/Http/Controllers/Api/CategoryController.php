@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 
 use App\Models\Category;
 use Illuminate\Support\Facades\Validator;
-
+use App\Models\Content;
 class CategoryController extends Controller
 {
     /**
@@ -16,7 +16,11 @@ class CategoryController extends Controller
     public function index()
     {
         $categories = Category::all();
-        return response()->json($categories);
+        $popularContent = Content::withCount('views')
+            ->orderBy('views_count', 'desc')
+            ->take(10)
+            ->get(['id', 'title', 'views_count']);
+        return response()->json(["categories" => $categories, "popularContent" => $popularContent]);
     }
 
     /**

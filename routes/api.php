@@ -99,6 +99,7 @@ Route::middleware([ApiTokenAuth::class])->group(function () {
 
     // Content Access
     Route::get('/contents', [ContentController::class, 'listContents']);
+    Route::get('/search', [ContentController::class, 'search']);
     Route::get('/normal-contents', [ContentController::class, 'normalContents']);
     Route::get('/contents/{id}/views', [ContentController::class, 'getContentViews']);
     // Route::get('/contents/{id}', [ContentController::class, 'getContentDetails'])->where('id', '[0-9]+');
