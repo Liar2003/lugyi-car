@@ -44,7 +44,7 @@ class ContentController extends Controller
         $perPage = (int) $request->query('per_page', 6);
         $page = (int) $request->query('page', 1);
 
-        $categories = ['jav' => 'Jav', 'thai' => 'Thai', 'chinese' => 'Chinese', 'mm_sub' => 'MMsub', 'usa' => 'USA', 'korea' => 'Korea', "movies"=> "Movie"];
+        $categories = ['jav' => 'Jav', 'thai' => 'Thai', 'chinese' => 'Chinese', 'mm_sub' => 'MMsub', 'usa' => 'USA', 'korea' => 'Korea', "movies" => "Movie"];
 
         $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
         $results = [];
@@ -71,7 +71,9 @@ class ContentController extends Controller
         $suggestions = Suggestion::all();
         $token = $request->bearerToken();
         $device = Device::where('api_token', $token)->first();
-
+        if (!$device->is_vip()) {
+            $results['ad'] = json_decode('[{"link": "https://example.com", "imgUrl": "https://example.com/ad.jpg"}]', true);
+        }
         $results['vip_contents'] = $vipContents->items();
         $results['categories'] = $categories;
         $results['suggestions'] = $suggestions;
