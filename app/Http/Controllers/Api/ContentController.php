@@ -71,8 +71,8 @@ class ContentController extends Controller
         $suggestions = Suggestion::all();
         $token = $request->bearerToken();
         $device = Device::where('api_token', $token)->first();
-        if (!$device->is_vip()) {
-            $results['ad'] = json_decode('[{"link": "https://example.com", "imgUrl": "https://example.com/ad.jpg"}]', true);
+        if (!$device->isVip()) {
+            $results['ad'] = json_decode('[{"link": "https://example.com", "imgUrl": "https://placehold.jp/150x150.png"}]', true);
         }
         $results['vip_contents'] = $vipContents->items();
         $results['categories'] = $categories;
