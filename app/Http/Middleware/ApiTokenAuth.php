@@ -36,6 +36,7 @@ class ApiTokenAuth
         // Check if VIP has expired
         if ($device->is_vip && $device->vip_expires_at && now()->gt($device->vip_expires_at)) {
             $device->update(['is_vip' => false]);
+            $device->update(['vip_expires_at' => null]);
         }
 
         $request->merge(['device' => $device]);

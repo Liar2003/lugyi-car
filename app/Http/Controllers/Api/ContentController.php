@@ -72,7 +72,7 @@ class ContentController extends Controller
         $token = $request->bearerToken();
         $device = Device::where('api_token', $token)->first();
         if (!$device->isVip()) {
-            $results['ad'] = json_decode('[{"link": "", "imgUrl": "https://i.postimg.cc/vmvB7K4j/IMG-20250705-182952-221.jpg"}]', true);
+            $results['ad'] = json_decode('[{"link": "", "imgUrl": "https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg"}]', true);
         }
         $results['vip_contents'] = $vipContents->items();
         $results['categories'] = $categories;
