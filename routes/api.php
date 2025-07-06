@@ -23,8 +23,8 @@ use App\Http\Controllers\Api\SuggestionController;
 
 
 //
-Route::get('/check', [\App\Http\Controllers\Api\ServerCheckController::class, 'check']);
-Route::get('/maintenance', [\App\Http\Controllers\Api\ServerCheckController::class, 'tempDown']);
+Route::get('/check', [\App\Http\Controllers\API\ServerCheckController::class, 'check']);
+Route::get('/maintenance', [\App\Http\Controllers\API\ServerCheckController::class, 'tempDown']);
 
 Route::post('/register', [DeviceController::class, 'register']);
 Route::get('/db-con', function () {
