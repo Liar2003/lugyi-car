@@ -217,20 +217,23 @@ class ContentController extends Controller
         ]);
     }
     //
-    public function listContents(Request $request)
-    {
-        $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
-        // Show all contents to both normal and VIP users
-        $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
-            ->orderBy('created_at', 'desc');
+   public function listContents(Request $request)
+{
+    $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
 
-        if ($showVipOnly) {
-            $query->where('isvip', true);
-        }
-        $contents = $query->paginate(15, ['*'], 'page', $request->query('page', 1));
+    $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
+        ->whereNotIn('category', ['Live', 'Sport']) // Exclude "Live" and "Sport"
+        ->orderBy('created_at', 'desc');
 
-        return response()->json($contents);
+    if ($showVipOnly) {
+        $query->where('isvip', true);
     }
+
+    $contents = $query->paginate(15, ['*'], 'page', $request->query('page', 1));
+
+    return response()->json($contents);
+}
+
 
     // Update getContentDetails method
     public function getContentDetails(Request $request, $id)
