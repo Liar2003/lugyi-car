@@ -44,16 +44,31 @@ class ContentController extends Controller
         $perPage = (int) $request->query('per_page', 6);
         $page = (int) $request->query('page', 1);
 
-        $categories = ['jav' => 'Jav', 'thai' => 'Thai', 'chinese' => 'Chinese', 'mm_sub' => 'MMsub', 'usa' => 'USA', 'korea' => 'Korea', "movies" => "Movie"];
+        $categories = [
+            'jav' => 'Jav',
+            'thai' => 'Thai',
+            'chinese' => 'Chinese',
+            'mm_sub' => 'MMsub',
+            'usa' => 'USA',
+            'korea' => 'Korea',
+            'movies' => 'Movie'
+        ];
 
         $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
         $results = [];
         $pagination = [];
 
         foreach ($categories as $key => $category) {
-            $content = Content::where('category', $category)
-                ->where('isvip', $category == "USA" ? true : false) // Show only non-VIP content
-                ->select($selectColumns)
+            $query = Content::where('category', $category);
+
+            // VIP logic: only show VIP for 'USA', else show non-VIP
+            if ($category === "USA") {
+                $query->where('isvip', true);
+            } else {
+                $query->where('isvip', false);
+            }
+
+            $content = $query->select($selectColumns)
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage, ['*'], 'page', $page);
 
@@ -61,30 +76,40 @@ class ContentController extends Controller
             $pagination['total_' . $key] = $content->total();
         }
 
+        // Vip Contents (Only from Jav)
         $vipContents = Content::select($selectColumns)
             ->where('category', "Jav")
             ->where('isvip', true)
-            ->latest() // shorthand for orderBy('created_at', 'desc')
+            ->latest()
             ->paginate($perPage, ['*'], 'page', $page);
-        $liveandsport = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
-        ->whereIn('category', ['Live', 'Sport']) // Only include "Live" and "Sport"
-        ->orderBy('created_at', 'desc');
 
-        $categories = Category::all();
+        // Live and Sport contents - fixed with pagination
+        $liveandsport = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
+            ->whereIn('category', ['Live', 'Sport'])
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        // Additional data
+        $categoriesList = Category::all();
         $suggestions = Suggestion::all();
+
         $token = $request->bearerToken();
         $device = Device::where('api_token', $token)->first();
-        if (!$device->isVip()) {
+
+        if (!$device || !$device->isVip()) {
             $results['ad'] = json_decode('[{"link": "", "imgUrl": "https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg"}]', true);
         }
+
+        // Combine results
         $results['vip_contents'] = $vipContents->items();
-        $results['categories'] = $categories;
+        $results['categories'] = $categoriesList;
         $results['suggestions'] = $suggestions;
         $results['device'] = $device;
-        $results['liveAndsport'] = $liveandsport;
+        $results['liveAndsport'] = $liveandsport->items();
 
         return response()->json(array_merge($results, ['pagination' => $pagination]));
     }
+
     public function getContentsByCategory(Request $request, $category)
     {
         $request->validate([
@@ -221,39 +246,39 @@ class ContentController extends Controller
         ]);
     }
     //
-   public function listContents(Request $request)
-{
-    $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
+    public function listContents(Request $request)
+    {
+        $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
 
-    $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
-        ->whereNotIn('category', ['Live', 'Sport']) // Exclude "Live" and "Sport"
-        ->orderBy('created_at', 'desc');
+        $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
+            ->whereNotIn('category', ['Live', 'Sport']) // Exclude "Live" and "Sport"
+            ->orderBy('created_at', 'desc');
 
-    if ($showVipOnly) {
-        $query->where('isvip', true);
+        if ($showVipOnly) {
+            $query->where('isvip', true);
+        }
+
+        $contents = $query->paginate(15, ['*'], 'page', $request->query('page', 1));
+
+        return response()->json($contents);
     }
+    //
+    public function listLiveAndSportContents(Request $request)
+    {
+        $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
 
-    $contents = $query->paginate(15, ['*'], 'page', $request->query('page', 1));
+        $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
+            ->whereIn('category', ['Live', 'Sport']) // Only include "Live" and "Sport"
+            ->orderBy('created_at', 'desc');
 
-    return response()->json($contents);
-}
-//
-public function listLiveAndSportContents(Request $request)
-{
-    $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
+        if ($showVipOnly) {
+            $query->where('isvip', true);
+        }
 
-    $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
-        ->whereIn('category', ['Live', 'Sport']) // Only include "Live" and "Sport"
-        ->orderBy('created_at', 'desc');
+        $contents = $query->paginate(15, ['*'], 'page', $request->query('page', 1));
 
-    if ($showVipOnly) {
-        $query->where('isvip', true);
+        return response()->json($contents);
     }
-
-    $contents = $query->paginate(15, ['*'], 'page', $request->query('page', 1));
-
-    return response()->json($contents);
-}
 
 
     // Update getContentDetails method
