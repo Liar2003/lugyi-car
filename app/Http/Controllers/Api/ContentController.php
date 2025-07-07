@@ -66,6 +66,9 @@ class ContentController extends Controller
             ->where('isvip', true)
             ->latest() // shorthand for orderBy('created_at', 'desc')
             ->paginate($perPage, ['*'], 'page', $page);
+             $liveandsport = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
+        ->whereIn('category', ['Live', 'Sport']) // Only include "Live" and "Sport"
+        ->orderBy('created_at', 'desc');
 
         $categories = Category::all();
         $suggestions = Suggestion::all();
@@ -78,6 +81,7 @@ class ContentController extends Controller
         $results['categories'] = $categories;
         $results['suggestions'] = $suggestions;
         $results['device'] = $device;
+        $results['liveAndsport'] = $liveandsport->items();
 
         return response()->json(array_merge($results, ['pagination' => $pagination]));
     }
