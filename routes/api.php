@@ -69,6 +69,7 @@ Route::prefix('auth')->group(function () {
         Route::put('/contents/{id}', [AdminController::class, 'updateContent']);
         Route::delete('/contents/{id}', [AdminController::class, 'deleteContent']);
         Route::post('/contents', [AdminController::class, 'createContent']);
+         Route::get('/contents/live-sport', [ContentController::class, 'listLiveAndSportContents']);
         Route::put('/contents/{id}', [AdminController::class, 'updateContent']);
         Route::get('/contents/{id}', [AdminController::class, 'getContentDetails'])->where('id', '[0-9]+');
         Route::get('/contents', [ContentController::class, 'listContents']);
@@ -100,6 +101,7 @@ Route::middleware([ApiTokenAuth::class])->group(function () {
     Route::get('/devices/status', [DeviceController::class, 'status']);
 
     // Content Access
+    Route::get('/contents/live-sport', [ContentController::class, 'listLiveAndSportContents']);
     Route::get('/contents', [ContentController::class, 'listContents']);
     Route::get('/search', [ContentController::class, 'search']);
     Route::get('/normal-contents', [ContentController::class, 'normalContents']);
