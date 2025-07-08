@@ -266,19 +266,33 @@ class ContentController extends Controller
     public function listLiveAndSportContents(Request $request)
     {
         $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
+        $perPage = (int) $request->query('per_page', 15);
+        $page = (int) $request->query('page', 1);
 
-        $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
-            ->whereIn('category', ['Live', 'Sport']) // Only include "Live" and "Sport"
+        $select = ['id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at'];
+
+        $liveQuery = Content::select($select)
+            ->where('category', 'Live')
+            ->orderBy('created_at', 'desc');
+
+        $sportQuery = Content::select($select)
+            ->where('category', 'Sport')
             ->orderBy('created_at', 'desc');
 
         if ($showVipOnly) {
-            $query->where('isvip', true);
+            $liveQuery->where('isvip', true);
+            $sportQuery->where('isvip', true);
         }
 
-        $contents = $query->paginate(15, ['*'], 'page', $request->query('page', 1));
+        $live = $liveQuery->paginate($perPage, ['*'], 'live_page', $page)->items();
+        $sport = $sportQuery->paginate($perPage, ['*'], 'sport_page', $page)->items();
 
-        return response()->json($contents);
+        return response()->json([
+            'live' => $live,
+            'sport' => $sport,
+        ]);
     }
+
 
 
     // Update getContentDetails method
