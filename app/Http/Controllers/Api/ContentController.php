@@ -266,6 +266,22 @@ class ContentController extends Controller
     public function listLiveAndSportContents(Request $request)
     {
         $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
+
+        $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
+            ->whereIn('category', ['Live', 'Sport']) // Only include "Live" and "Sport"
+            ->orderBy('created_at', 'desc');
+
+        if ($showVipOnly) {
+            $query->where('isvip', true);
+        }
+
+        $contents = $query->paginate(15, ['*'], 'page', $request->query('page', 1));
+
+        return response()->json($contents);
+    }
+    public function listLiveAndSport(Request $request)
+    {
+        $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
         $perPage = (int) $request->query('per_page', 15);
         $page = (int) $request->query('page', 1);
 
