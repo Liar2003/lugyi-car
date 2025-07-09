@@ -10,7 +10,8 @@ use Illuminate\Support\Str;
 use App\Models\Category;
 use App\Models\Device;
 use App\Models\Suggestion;
-
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class ContentController extends Controller
 {
@@ -113,84 +114,96 @@ class ContentController extends Controller
 
     public function getHomeContents(Request $request)
     {
-        $categories = [
-            'jav'      => ['name' => 'Jav',    'vip' => false],
-            'thai'     => ['name' => 'Thai',   'vip' => false],
-            'chinese'  => ['name' => 'Chinese', 'vip' => false],
-            'mm_sub'   => ['name' => 'MMsub',  'vip' => false],
-            'usa'      => ['name' => 'USA',    'vip' => true], // Only VIP for USA
-            'korea'    => ['name' => 'Korea',  'vip' => false],
-            'movies'   => ['name' => 'Movie',  'vip' => false],
+        // How many items per “box”
+        $limit = 8;
+
+        // Raw CTE + windowing in Postgres
+        $sql = <<<'SQL'
+WITH all_rows AS (
+   SELECT
+     id,
+     title,
+     profileImg,
+     content,
+     tags,
+     isvip,
+     category,
+     coverImg,
+     duration,
+     created_at,
+     -- define a single partition for Live+Sport
+     CASE
+       WHEN category IN ('Live','Sport') THEN 'LiveSport'
+       ELSE category
+     END AS partition_key
+   FROM contents
+   WHERE
+     -- USA VIP
+     (category = 'USA'    AND isvip = TRUE)
+     OR
+     -- non‑VIP “main” categories
+     (category IN ('Jav','Thai','Chinese','MMsub','Korea','Movie') AND isvip = FALSE)
+     OR
+     -- Jav VIP for your vip_contents box
+     (category = 'Jav'    AND isvip = TRUE)
+     OR
+     -- Live+Sport for the liveAndSport box
+     (category IN ('Live','Sport'))
+),
+numbered AS (
+   SELECT
+     *,
+     ROW_NUMBER() OVER (
+       PARTITION BY partition_key
+       ORDER BY created_at DESC
+     ) AS rn
+   FROM all_rows
+)
+SELECT *
+FROM numbered
+WHERE rn <= :limit
+ORDER BY partition_key, created_at DESC;
+SQL;
+
+        // Run the query with a binding
+        $rows = collect(
+            DB::select($sql, ['limit' => $limit])
+        );
+
+        // Group by actual category value
+        $grouped = $rows->groupBy('category');
+
+        // Map into your response keys
+        $results = [
+            'jav'         => $grouped->get('Jav', collect())->where('isvip', false)->values(),
+            'thai'        => $grouped->get('Thai', collect())->where('isvip', false)->values(),
+            'chinese'     => $grouped->get('Chinese', collect())->where('isvip', false)->values(),
+            'mm_sub'      => $grouped->get('MMsub', collect())->where('isvip', false)->values(),
+            'korea'       => $grouped->get('Korea', collect())->where('isvip', false)->values(),
+            'movies'      => $grouped->get('Movie', collect())->where('isvip', false)->values(),
+            'usa'         => $grouped->get('USA', collect())->where('isvip', true)->values(),
+            'vip_contents' => $grouped->get('Jav', collect())->where('isvip', true)->values(),
+            'liveAndsport' => $grouped->get('Live', collect())
+                ->merge($grouped->get('Sport', collect()))
+                ->sortByDesc('created_at')
+                ->take($limit)
+                ->values(),
         ];
 
-        $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
-        $results = [];
-        $pagination = [];
+        // Cached auxiliary tables
+        $results['categories']  = Cache::remember('home_cats', 300, fn() => Category::select('id', 'name')->get());
+        $results['suggestions'] = Cache::remember('home_sugs', 300, fn() => Suggestion::select('id', 'text')->get());
 
-        // Step 1: Fetch counts in 2 optimized queries
-        $nonUsaCats = collect($categories)->filter(fn($cat) => !$cat['vip'])
-            ->pluck('name');
-
-        $counts = Content::whereIn('category', $nonUsaCats)
-            ->where('isvip', false)
-            ->selectRaw('category, count(*) as total')
-            ->groupBy('category')
-            ->pluck('total', 'category');
-
-        $usaCount = Content::where('category', 'USA')
-            ->where('isvip', true)
-            ->count();
-
-        // Step 2: Fetch category data in parallel
-        $categoryData = [];
-        foreach ($categories as $key => $cat) {
-            $query = Content::where('category', $cat['name'])
-                ->where('isvip', $cat['vip'])
-                ->select($selectColumns)
-                ->latest();
-
-            $categoryData[$key] = $query->take(8)->get();
-            $pagination['total_' . $key] = $cat['vip'] ? $usaCount : ($counts[$cat['name']] ?? 0);
+        // Device from middleware (or inline token lookup)
+        $device = $request->device;
+        $results['device'] = $device;
+        if (! $device?->isVip()) {
+            $results['ad'] = [['link' => '', 'imgUrl' => 'https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg']];
         }
 
-        // Step 3: Fetch special content
-        $specialContent = [
-            'vip_contents' => Content::where('category', 'Jav')
-                ->where('isvip', true)
-                ->select($selectColumns)
-                ->latest()
-                ->take(8)
-                ->get(),
-
-            'liveAndsport' => Content::whereIn('category', ['Live', 'Sport'])
-                ->select(['id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at'])
-                ->latest()
-                ->take(8)
-                ->get()
-        ];
-
-        // Step 4: Additional data
-        $additionalData = [
-            'categories'  => Category::all(),
-            'suggestions' => Suggestion::all(),
-            'device'      => Device::where('api_token', $request->bearerToken())->first(),
-        ];
-
-        // Step 5: Handle ads
-        $ad = [];
-        if (!$additionalData['device']?->isVip()) {
-            $ad = ['ad' => [['link' => '', 'imgUrl' => 'https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg']]];
-        }
-
-        // Compile final response
-        return response()->json([
-            ...$categoryData,
-            ...$specialContent,
-            ...$additionalData,
-            ...$ad,
-            'pagination' => $pagination
-        ]);
+        return response()->json($results);
     }
+
 
     public function getContentsByCategory(Request $request, $category)
     {
