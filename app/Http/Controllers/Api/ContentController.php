@@ -39,88 +39,158 @@ class ContentController extends Controller
             ]
         ]);
     }
-    use Illuminate\Support\Facades\DB;
 
-public function getHomeContents(Request $request)
-{
-    $categories = [
-        'jav'      => ['name' => 'Jav',    'vip' => false],
-        'thai'     => ['name' => 'Thai',   'vip' => false],
-        'chinese'  => ['name' => 'Chinese','vip' => false],
-        'mm_sub'   => ['name' => 'MMsub',  'vip' => false],
-        'usa'      => ['name' => 'USA',    'vip' => true], // Only VIP for USA
-        'korea'    => ['name' => 'Korea',  'vip' => false],
-        'movies'   => ['name' => 'Movie',  'vip' => false],
-    ];
+    // public function getHomeContents(Request $request)
+    // {
+    //     $perPage = (int) $request->query('per_page', 6);
+    //     $page = (int) $request->query('page', 1);
 
-    $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
-    $results = [];
-    $pagination = [];
+    //     $categories = [
+    //         'jav' => 'Jav',
+    //         'thai' => 'Thai',
+    //         'chinese' => 'Chinese',
+    //         'mm_sub' => 'MMsub',
+    //         'usa' => 'USA',
+    //         'korea' => 'Korea',
+    //         'movies' => 'Movie'
+    //     ];
 
-    // Step 1: Fetch counts in 2 optimized queries
-    $nonUsaCats = collect($categories)->filter(fn($cat) => !$cat['vip'])
-                                      ->pluck('name');
-    
-    $counts = Content::whereIn('category', $nonUsaCats)
-                     ->where('isvip', false)
-                     ->selectRaw('category, count(*) as total')
-                     ->groupBy('category')
-                     ->pluck('total', 'category');
+    //     $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
+    //     $results = [];
+    //     $pagination = [];
 
-    $usaCount = Content::where('category', 'USA')
-                       ->where('isvip', true)
-                       ->count();
+    //     foreach ($categories as $key => $category) {
+    //         $query = Content::where('category', $category);
 
-    // Step 2: Fetch category data in parallel
-    $categoryData = [];
-    foreach ($categories as $key => $cat) {
-        $query = Content::where('category', $cat['name'])
-                        ->where('isvip', $cat['vip'])
-                        ->select($selectColumns)
-                        ->latest();
+    //         // VIP logic: only show VIP for 'USA', else show non-VIP
+    //         if ($category === "USA") {
+    //             $query->where('isvip', true);
+    //         } else {
+    //             $query->where('isvip', false);
+    //         }
 
-        $categoryData[$key] = $query->take(8)->get();
-        $pagination['total_' . $key] = $cat['vip'] ? $usaCount : ($counts[$cat['name']] ?? 0);
+    //         $content = $query->select($selectColumns)
+    //             ->orderBy('created_at', 'desc')
+    //             ->paginate($perPage, ['*'], 'page', $page);
+
+    //         $results[$key] = $content->items();
+    //         $pagination['total_' . $key] = $content->total();
+    //     }
+
+    //     // Vip Contents (Only from Jav)
+    //     $vipContents = Content::select($selectColumns)
+    //         ->where('category', "Jav")
+    //         ->where('isvip', true)
+    //         ->latest()
+    //         ->paginate($perPage, ['*'], 'page', $page);
+
+    //     // Live and Sport contents - fixed with pagination
+    //     $liveandsport = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
+    //         ->whereIn('category', ['Live', 'Sport'])
+    //         ->orderBy('created_at', 'desc')
+    //         ->paginate($perPage, ['*'], 'page', $page);
+
+    //     // Additional data
+    //     $categoriesList = Category::all();
+    //     $suggestions = Suggestion::all();
+
+    //     $token = $request->bearerToken();
+    //     $device = Device::where('api_token', $token)->first();
+
+    //     if (!$device || !$device->isVip()) {
+    //         $results['ad'] = json_decode('[{"link": "", "imgUrl": "https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg"}]', true);
+    //     }
+
+    //     // Combine results
+    //     $results['vip_contents'] = $vipContents->items();
+    //     $results['categories'] = $categoriesList;
+    //     $results['suggestions'] = $suggestions;
+    //     $results['device'] = $device;
+    //     $results['liveAndsport'] = $liveandsport->items();
+
+    //     return response()->json(array_merge($results, ['pagination' => $pagination]));
+    // }
+
+    public function getHomeContents(Request $request)
+    {
+        $categories = [
+            'jav'      => ['name' => 'Jav',    'vip' => false],
+            'thai'     => ['name' => 'Thai',   'vip' => false],
+            'chinese'  => ['name' => 'Chinese', 'vip' => false],
+            'mm_sub'   => ['name' => 'MMsub',  'vip' => false],
+            'usa'      => ['name' => 'USA',    'vip' => true], // Only VIP for USA
+            'korea'    => ['name' => 'Korea',  'vip' => false],
+            'movies'   => ['name' => 'Movie',  'vip' => false],
+        ];
+
+        $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
+        $results = [];
+        $pagination = [];
+
+        // Step 1: Fetch counts in 2 optimized queries
+        $nonUsaCats = collect($categories)->filter(fn($cat) => !$cat['vip'])
+            ->pluck('name');
+
+        $counts = Content::whereIn('category', $nonUsaCats)
+            ->where('isvip', false)
+            ->selectRaw('category, count(*) as total')
+            ->groupBy('category')
+            ->pluck('total', 'category');
+
+        $usaCount = Content::where('category', 'USA')
+            ->where('isvip', true)
+            ->count();
+
+        // Step 2: Fetch category data in parallel
+        $categoryData = [];
+        foreach ($categories as $key => $cat) {
+            $query = Content::where('category', $cat['name'])
+                ->where('isvip', $cat['vip'])
+                ->select($selectColumns)
+                ->latest();
+
+            $categoryData[$key] = $query->take(8)->get();
+            $pagination['total_' . $key] = $cat['vip'] ? $usaCount : ($counts[$cat['name']] ?? 0);
+        }
+
+        // Step 3: Fetch special content
+        $specialContent = [
+            'vip_contents' => Content::where('category', 'Jav')
+                ->where('isvip', true)
+                ->select($selectColumns)
+                ->latest()
+                ->take(8)
+                ->get(),
+
+            'liveAndsport' => Content::whereIn('category', ['Live', 'Sport'])
+                ->select(['id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at'])
+                ->latest()
+                ->take(8)
+                ->get()
+        ];
+
+        // Step 4: Additional data
+        $additionalData = [
+            'categories'  => Category::all(),
+            'suggestions' => Suggestion::all(),
+            'device'      => Device::where('api_token', $request->bearerToken())->first(),
+        ];
+
+        // Step 5: Handle ads
+        $ad = [];
+        if (!$additionalData['device']?->isVip()) {
+            $ad = ['ad' => [['link' => '', 'imgUrl' => 'https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg']]];
+        }
+
+        // Compile final response
+        return response()->json([
+            ...$categoryData,
+            ...$specialContent,
+            ...$additionalData,
+            ...$ad,
+            'pagination' => $pagination
+        ]);
     }
-
-    // Step 3: Fetch special content
-    $specialContent = [
-        'vip_contents' => Content::where('category', 'Jav')
-                                ->where('isvip', true)
-                                ->select($selectColumns)
-                                ->latest()
-                                ->take(8)
-                                ->get(),
-        
-        'liveAndsport' => Content::whereIn('category', ['Live', 'Sport'])
-                                ->select(['id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at'])
-                                ->latest()
-                                ->take(8)
-                                ->get()
-    ];
-
-    // Step 4: Additional data
-    $additionalData = [
-        'categories'  => Category::all(),
-        'suggestions' => Suggestion::all(),
-        'device'      => Device::where('api_token', $request->bearerToken())->first(),
-    ];
-
-    // Step 5: Handle ads
-    $ad = [];
-    if (!$additionalData['device']?->isVip()) {
-        $ad = ['ad' => [['link' => '', 'imgUrl' => 'https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg']]];
-    }
-
-    // Compile final response
-    return response()->json([
-        ...$categoryData,
-        ...$specialContent,
-        ...$additionalData,
-        ...$ad,
-        'pagination' => $pagination
-    ]);
-}
 
     public function getContentsByCategory(Request $request, $category)
     {
