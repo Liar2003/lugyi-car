@@ -7,8 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\Content;
 
 use Illuminate\Support\Str;
-use App\Models\Device;
-use Illuminate\Support\Facades\DB;use Illuminate\Support\Collection;
+use App\Models\Category;
+use App\Models\Suggestion;
 
 class ContentController extends Controller
 {
@@ -109,87 +109,6 @@ class ContentController extends Controller
     //     return response()->json(array_merge($results, ['pagination' => $pagination]));
     // }
 
-    // public function getHomeContents(Request $request)
-    // {
-    //     $categories = [
-    //         'jav'      => ['name' => 'Jav',    'vip' => false],
-    //         'thai'     => ['name' => 'Thai',   'vip' => false],
-    //         'chinese'  => ['name' => 'Chinese', 'vip' => false],
-    //         'mm_sub'   => ['name' => 'MMsub',  'vip' => false],
-    //         'usa'      => ['name' => 'USA',    'vip' => true], // Only VIP for USA
-    //         'korea'    => ['name' => 'Korea',  'vip' => false],
-    //         'movies'   => ['name' => 'Movie',  'vip' => false],
-    //     ];
-
-    //     $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
-    //     $results = [];
-    //     $pagination = [];
-
-    //     // Step 1: Fetch counts in 2 optimized queries
-    //     $nonUsaCats = collect($categories)->filter(fn($cat) => !$cat['vip'])
-    //         ->pluck('name');
-
-    //     $counts = Content::whereIn('category', $nonUsaCats)
-    //         ->where('isvip', false)
-    //         ->selectRaw('category, count(*) as total')
-    //         ->groupBy('category')
-    //         ->pluck('total', 'category');
-
-    //     $usaCount = Content::where('category', 'USA')
-    //         ->where('isvip', true)
-    //         ->count();
-
-    //     // Step 2: Fetch category data in parallel
-    //     $categoryData = [];
-    //     foreach ($categories as $key => $cat) {
-    //         $query = Content::where('category', $cat['name'])
-    //             ->where('isvip', $cat['vip'])
-    //             ->select($selectColumns)
-    //             ->latest();
-
-    //         $categoryData[$key] = $query->take(8)->get();
-    //         $pagination['total_' . $key] = $cat['vip'] ? $usaCount : ($counts[$cat['name']] ?? 0);
-    //     }
-
-    //     // Step 3: Fetch special content
-    //     $specialContent = [
-    //         'vip_contents' => Content::where('category', 'Jav')
-    //             ->where('isvip', true)
-    //             ->select($selectColumns)
-    //             ->latest()
-    //             ->take(8)
-    //             ->get(),
-
-    //         'liveAndsport' => Content::whereIn('category', ['Live', 'Sport'])
-    //             ->select(['id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at'])
-    //             ->latest()
-    //             ->take(8)
-    //             ->get()
-    //     ];
-
-    //     // Step 4: Additional data
-    //     $additionalData = [
-    //         'categories'  => Category::all(),
-    //         'suggestions' => Suggestion::all(),
-    //         'device'      => $request->device,
-    //     ];
-
-    //     // Step 5: Handle ads
-    //     $ad = [];
-    //     if (!$additionalData['device']?->isVip()) {
-    //         $ad = ['ad' => [['link' => '', 'imgUrl' => 'https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg']]];
-    //     }
-
-    //     // Compile final response
-    //     return response()->json([
-    //         ...$categoryData,
-    //         ...$specialContent,
-    //         ...$additionalData,
-    //         ...$ad,
-    //         'pagination' => $pagination
-    //     ]);
-    // }
-    
     public function getHomeContents(Request $request)
     {
         $categories = [
@@ -197,93 +116,80 @@ class ContentController extends Controller
             'thai'     => ['name' => 'Thai',   'vip' => false],
             'chinese'  => ['name' => 'Chinese', 'vip' => false],
             'mm_sub'   => ['name' => 'MMsub',  'vip' => false],
-            'usa'      => ['name' => 'USA',    'vip' => true],
+            'usa'      => ['name' => 'USA',    'vip' => true], // Only VIP for USA
             'korea'    => ['name' => 'Korea',  'vip' => false],
             'movies'   => ['name' => 'Movie',  'vip' => false],
-
         ];
 
+        $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
         $results = [];
         $pagination = [];
-        $nonUsaCats = collect($categories)->where('vip', false)->pluck('name')->all();
 
-        // 1. Fetch all category contents in a single query using window functions
-        $categoryContents = DB::select("
-            SELECT * FROM (
-                SELECT 
-                    id, title, profileImg, content, tags, isvip, created_at, category,
-                    ROW_NUMBER() OVER (PARTITION BY category ORDER BY created_at DESC) as row_num
-                FROM contents
-                WHERE 
-                    (category IN ('" . implode("','", $nonUsaCats) . "' AND isvip = 0)
-                    OR (category = 'USA' AND isvip = 1)
-            ) as ranked
-            WHERE row_num <= 8
-        ");
+        // Step 1: Fetch counts in 2 optimized queries
+        $nonUsaCats = collect($categories)->filter(fn($cat) => !$cat['vip'])
+            ->pluck('name');
 
-        // 2. Get counts in a single query
-        $counts = DB::select("
-            SELECT 
-                SUM(CASE WHEN category = 'USA' AND isvip = 1 THEN 1 ELSE 0 END) as usa,
-                SUM(CASE WHEN category IN ('" . implode("','", $nonUsaCats) . "') AND isvip = 0 THEN 1 ELSE 0 END) as non_usa
-            FROM contents
-        ")[0];
+        $counts = Content::whereIn('category', $nonUsaCats)
+            ->where('isvip', false)
+            ->selectRaw('category, count(*) as total')
+            ->groupBy('category')
+            ->pluck('total', 'category');
 
-        $categoryData = collect($categoryContents)->groupBy('category');
+        $usaCount = Content::where('category', 'USA')
+            ->where('isvip', true)
+            ->count();
 
+        // Step 2: Fetch category data in parallel
+        $categoryData = [];
         foreach ($categories as $key => $cat) {
-            $results[$key] = $categoryData->get($cat['name'], collect())->take(8)->values();
-            $pagination['total_' . $key] = $cat['vip'] ? $counts->usa : $counts->non_usa;
+            $query = Content::where('category', $cat['name'])
+                ->where('isvip', $cat['vip'])
+                ->select($selectColumns)
+                ->latest();
+
+            $categoryData[$key] = $query->take(8)->get();
+            $pagination['total_' . $key] = $cat['vip'] ? $usaCount : ($counts[$cat['name']] ?? 0);
         }
 
-        // 3. Fetch special content in parallel
-        $specialContent = DB::select("
-            (SELECT 'vip' as type, id, title, profileImg, content, tags, isvip, created_at 
-             FROM contents 
-             WHERE category = 'Jav' AND isvip = 1 
-             ORDER BY created_at DESC LIMIT 8)
-            UNION ALL
-            (SELECT 'live' as type, id, title, profileImg, coverImg, tags, content, category, duration, isvip, created_at 
-             FROM contents 
-             WHERE category IN ('Live', 'Sport') 
-             ORDER BY created_at DESC LIMIT 8)
-        ");
+        // Step 3: Fetch special content
+        $specialContent = [
+            'vip_contents' => Content::where('category', 'Jav')
+                ->where('isvip', true)
+                ->select($selectColumns)
+                ->latest()
+                ->take(8)
+                ->get(),
 
-        // 4. Process special content
-        $results['vip_contents'] = collect($specialContent)
-            ->where('type', 'vip')
-            ->map(fn($item) => (array)$item);
+            'liveAndsport' => Content::whereIn('category', ['Live', 'Sport'])
+                ->select(['id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at'])
+                ->latest()
+                ->take(8)
+                ->get()
+        ];
 
-        $results['liveAndsport'] = collect($specialContent)
-            ->where('type', 'live')
-            ->map(fn($item) => (array)$item);
+        // Step 4: Additional data
+        $additionalData = [
+            'categories'  => Category::all(),
+            'suggestions' => Suggestion::all(),
+            'device'      => $request->device,
+        ];
 
-        // 5. Fetch all additional data in one query
-        $additionalData = DB::select("
-            (SELECT 'categories' as type, * FROM categories) 
-            UNION ALL
-            (SELECT 'suggestions' as type, * FROM suggestions)
-        ");
-
-        $results['categories'] = collect($additionalData)
-            ->where('type', 'categories')
-            ->map(fn($item) => (array)$item);
-
-        $results['suggestions'] = collect($additionalData)
-            ->where('type', 'suggestions')
-            ->map(fn($item) => (array)$item);
-
-        // 6. Device and ad logic
-     
-        $device = $request->device;
-        $results['device'] = $device;
-
-        if (!$device || !$device->isVip()) {
-            $results['ad'] = [['link' => '', 'imgUrl' => 'https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg']];
+        // Step 5: Handle ads
+        $ad = [];
+        if (!$additionalData['device']?->isVip()) {
+            $ad = ['ad' => [['link' => '', 'imgUrl' => 'https://i.postimg.cc/HWB1dgMj/IMG-20250705-190417-694.jpg']]];
         }
 
-        return response()->json(array_merge($results, ['pagination' => $pagination]));
+        // Compile final response
+        return response()->json([
+            ...$categoryData,
+            ...$specialContent,
+            ...$additionalData,
+            ...$ad,
+            'pagination' => $pagination
+        ]);
     }
+
     public function getContentsByCategory(Request $request, $category)
     {
         $request->validate([
