@@ -14,7 +14,7 @@ class MatchesController extends Controller
 {
     protected Client $client;
     protected string $referer = 'https://socolivev.co/';
-    protected int $matchDur = 7200; // 2 hours in seconds
+    protected int $matchDuration = 5400; // 90 min in seconds
 
     public function __construct()
     {
@@ -32,7 +32,7 @@ class MatchesController extends Controller
     {
         // Dates: yesterday, today, tomorrow
         $dates = [-1, 0, 1];
-        $dateStrings = array_map(fn($d) => Carbon::now('UTC')->addDays($d)->format('Ymd'), $dates);
+        $dateStrings = array_map(fn($d) => Carbon::now('Asia/Yangon')->addDays($d)->format('Ymd'), $dates);
 
         // Fetch football matches (external API)
         $footballMatchesRaw = collect($dateStrings)
@@ -88,7 +88,7 @@ class MatchesController extends Controller
             return collect();
         }
 
-        $now = now()->timestamp;
+        $now = Carbon::now('UTC')->timestamp;
 
         return collect($payload['data'])->map(function ($it) use ($now) {
             // safe‑extract everything that might not exist
@@ -102,9 +102,10 @@ class MatchesController extends Controller
             $awayScore = $it['awayScore']  ?? null;
 
             // determine status
+            $matchDuration = $this->matchDuration ?? 5400; // 90 min
             $status = $now < $mt
                 ? 'vs'
-                : ($now <= $mt + $this->matchDur ? 'live' : 'finished');
+                : ($now <= $mt + $matchDuration ? 'live' : 'finished');
 
             // build match_score only if both scores are present
             $match_score = (is_numeric($homeScore) && is_numeric($awayScore))
@@ -118,10 +119,12 @@ class MatchesController extends Controller
             }
 
             // Convert match_time to readable UTC format
-            $matchTimeUtc = gmdate('Y-m-d H:i:s', $mt) . ' UTC';
+            $matchTimeMmt = Carbon::createFromTimestamp($mt, 'UTC')
+                ->setTimezone('Asia/Yangon')
+                ->format('Y-m-d H:i:s') . ' MMT';
 
             return [
-                'match_time'       => $matchTimeUtc,
+                'match_time'       => $matchTimeMmt,
                 'match_time_unix'  => $mt,
                 'match_status'     => $status,
                 'home_team_name'   => $homeName,
