@@ -88,7 +88,7 @@ class MatchesController extends Controller
             return collect();
         }
 
-        $now = Carbon::now('UTC')->timestamp;
+        $now = Carbon::now('Asia/Yangon')->timestamp;
 
         return collect($payload['data'])->map(function ($it) use ($now) {
             // safe‑extract everything that might not exist
