@@ -73,6 +73,7 @@ class DashboardController extends Controller
             'vip_content' => $vip,
             'total_views' => $views,
             'popular_content' => $popularContent,
+            'chart' => $this->getContentTimeSeries($timeRange),
             'views_chart' => $this->getContentViewTimeSeries($timeRange)
         ];
     }
@@ -158,6 +159,19 @@ class DashboardController extends Controller
         return Subscription::select(
             DB::raw("TO_CHAR(created_at, '{$format}') as date"),
             DB::raw('count(*) as subscriptions'),
+        )
+            ->whereBetween('created_at', $this->getDateRange($range))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+    }
+     protected function getContentTimeSeries($range)
+    {
+        $format = $this->getDateFormat($range);
+
+        return Subscription::select(
+            DB::raw("TO_CHAR(created_at, '{$format}') as date"),
+            DB::raw('count(*) as contents'),
         )
             ->whereBetween('created_at', $this->getDateRange($range))
             ->groupBy('date')

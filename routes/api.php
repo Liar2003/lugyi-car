@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Middleware\AuthWithToken;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\MatchesController;
 
 /*--------------------------------------------------------------------------
 | Public Routes
@@ -21,8 +22,9 @@ use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\SuggestionController;
 
 
-
 //
+Route::get('/matches/{roomNum}/servers', [MatchesController::class, 'getLiveServers']);
+Route::get('/matches', [MatchesController::class, 'index']);
 Route::get('/check', [\App\Http\Controllers\API\ServerCheckController::class, 'check']);
 Route::get('/maintenance', [\App\Http\Controllers\API\ServerCheckController::class, 'tempDown']);
 
@@ -46,6 +48,9 @@ Route::prefix('auth')->group(function () {
 
     // Protected routes
     Route::middleware([AuthWithToken::class])->group(function () {
+        //Third-party API routes
+        Route::get('/matches/{roomNum}/servers', [MatchesController::class, 'getLiveServers']);
+        Route::get('/matches', [MatchesController::class, 'index']);
         //Subscription routes
         Route::post('/create-key', [AdminController::class, 'createSubscriptionKey']);
         Route::get('/subscription-keys', [AdminController::class, 'listSubscriptionKeys']);

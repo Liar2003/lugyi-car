@@ -19,7 +19,7 @@ class ApiTokenAuth
     {
         // Try to get token from Authorization header or query parameter
         $token = $request->bearerToken() ?: $request->query('api_token');
-        
+
         if (!$token) {
             return response()->json([
                 'error' => 'API token required',
@@ -28,6 +28,7 @@ class ApiTokenAuth
         }
 
         $device = Device::where('api_token', $token)->first();
+        $device->update(['last_active_at' => now()]);
 
         if (!$device) {
             return response()->json(['error' => 'Invalid API token'], 401);
@@ -38,6 +39,7 @@ class ApiTokenAuth
             $device->update(['is_vip' => false]);
             $device->update(['vip_expires_at' => null]);
         }
+
 
         $request->merge(['device' => $device]);
 
