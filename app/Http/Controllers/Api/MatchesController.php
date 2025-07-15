@@ -8,6 +8,7 @@ use GuzzleHttp\Client;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use App\Models\Content;
+use Illuminate\Support\Carbon;
 
 class MatchesController extends Controller
 {
@@ -31,7 +32,7 @@ class MatchesController extends Controller
     {
         // Dates: yesterday, today, tomorrow
         $dates = [-1, 0, 1];
-       $dateStrings = array_map(fn($d) => Carbon::now('UTC')->addDays($d)->format('Ymd'), $dates);
+        $dateStrings = array_map(fn($d) => Carbon::now('UTC')->addDays($d)->format('Ymd'), $dates);
 
         // Fetch football matches (external API)
         $footballMatchesRaw = collect($dateStrings)
