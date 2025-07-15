@@ -73,7 +73,7 @@ class DashboardController extends Controller
             'vip_content' => $vip,
             'total_views' => $views,
             'popular_content' => $popularContent,
-            'chart' => $this->getContentTimeSeries($timeRange),
+            'chart' => $this->getTimeSeriesData(Content::class, $timeRange),
             'views_chart' => $this->getContentViewTimeSeries($timeRange)
         ];
     }
@@ -82,12 +82,12 @@ class DashboardController extends Controller
     {
         $total = Subscription::count();
         $active = Subscription::where('is_active', true)->count();
-       // $revenue = Subscription::sum('price'); // Assuming you have a price column
+        // $revenue = Subscription::sum('price'); // Assuming you have a price column
 
         return [
             'total' => $total,
             'active' => $active,
-            'chart' => $this->getSubscriptionTimeSeries($timeRange)
+            'chart' => $this->getTimeSeriesData(Subscription::class, $timeRange)
         ];
     }
 
@@ -141,9 +141,13 @@ class DashboardController extends Controller
     protected function getContentViewTimeSeries($range)
     {
         $format = $this->getDateFormat($range);
+        $driver = DB::getDriverName();
+        $dateExpression = $driver === 'pgsql'
+            ? "TO_CHAR(created_at, '{$format}')"
+            : "DATE_FORMAT(created_at, '{$format}')";
 
         return ContentView::select(
-            DB::raw("TO_CHAR(created_at, '{$format}') as date"),
+            DB::raw("{$dateExpression} as date"),
             DB::raw('count(*) as views')
         )
             ->whereBetween('created_at', $this->getDateRange($range))
@@ -165,7 +169,7 @@ class DashboardController extends Controller
             ->orderBy('date')
             ->get();
     }
-     protected function getContentTimeSeries($range)
+    protected function getContentTimeSeries($range)
     {
         $format = $this->getDateFormat($range);
 
@@ -182,9 +186,13 @@ class DashboardController extends Controller
     protected function getDetailedViewTimeSeries($range)
     {
         $format = $this->getDateFormat($range);
+        $driver = DB::getDriverName();
+        $dateExpression = $driver === 'pgsql'
+            ? "TO_CHAR(content_views.created_at, '{$format}')"
+            : "DATE_FORMAT(content_views.created_at, '{$format}')";
 
         return ContentView::select(
-           
+            DB::raw("{$dateExpression} as date"),
             DB::raw('count(*) as total_views'),
             DB::raw('sum(CASE WHEN contents.isvip = 1 THEN 1 ELSE 0 END) as vip_views')
         )
