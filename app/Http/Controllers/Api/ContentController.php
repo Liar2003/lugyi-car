@@ -12,6 +12,8 @@ use App\Models\Suggestion;
 
 class ContentController extends Controller
 {
+    // Centralized select columns for reuse
+    private static array $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
     public function search(Request $request)
     {
         $search = $request->input('q');
@@ -116,50 +118,31 @@ class ContentController extends Controller
             'thai'     => ['name' => 'Thai',   'vip' => false],
             'chinese'  => ['name' => 'Chinese', 'vip' => false],
             'mm_sub'   => ['name' => 'MMsub',  'vip' => false],
-            'usa'      => ['name' => 'USA',    'vip' => true], // Only VIP for USA
+            'usa'      => ['name' => 'USA',    'vip' => true],
             'korea'    => ['name' => 'Korea',  'vip' => false],
             'movies'   => ['name' => 'Movie',  'vip' => false],
         ];
 
-        $selectColumns = ['id', 'title', 'profileImg', 'content', 'tags', 'isvip', 'created_at'];
-        $results = [];
-        $pagination = [];
-
-        // Step 1: Fetch counts in 2 optimized queries
-        $nonUsaCats = collect($categories)->filter(fn($cat) => !$cat['vip'])
-            ->pluck('name');
-
-        $counts = Content::whereIn('category', $nonUsaCats)
-            ->where('isvip', false)
-            ->selectRaw('category, count(*) as total')
-            ->groupBy('category')
-            ->pluck('total', 'category');
-
-        $usaCount = Content::where('category', 'USA')
-            ->where('isvip', true)
-            ->count();
-
-        // Step 2: Fetch category data in parallel
         $categoryData = [];
+        $pagination = [];
         foreach ($categories as $key => $cat) {
             $query = Content::where('category', $cat['name'])
                 ->where('isvip', $cat['vip'])
-                ->select($selectColumns)
-                ->latest();
-
-            $categoryData[$key] = $query->take(8)->get();
-            $pagination['total_' . $key] = $cat['vip'] ? $usaCount : ($counts[$cat['name']] ?? 0);
+                ->select(self::$selectColumns)
+                ->orderBy('created_at', 'desc');
+            $items = $query->take(8)->get();
+            $categoryData[$key] = $items;
+            $pagination['total_' . $key] = Content::where('category', $cat['name'])->where('isvip', $cat['vip'])->count();
         }
 
         // Step 3: Fetch special content
         $specialContent = [
             'vip_contents' => Content::where('category', 'Jav')
                 ->where('isvip', true)
-                ->select($selectColumns)
-                ->latest()
+                ->select(self::$selectColumns)
+                ->orderBy('created_at', 'desc')
                 ->take(8)
                 ->get(),
-
             'liveAndsport' => Content::whereIn('category', ['Live', 'Sport'])
                 ->select(['id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at'])
                 ->latest()
