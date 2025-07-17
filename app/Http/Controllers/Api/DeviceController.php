@@ -9,9 +9,156 @@ use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Models\DeviceReferral;
 
 class DeviceController extends Controller
 {
+
+    /**
+     * Claim reward based on number of VIP or normal referred devices
+     */
+    public function claimReferralTypeReward($device_id)
+    {
+        $referrer = Device::where('device_id', $device_id)->first();
+        if (!$referrer) {
+            return response()->json(['error' => 'Device not found'], 404);
+        }
+        // Get all referred device IDs
+        $referredIds = \App\Models\DeviceReferral::where('referrer_device_id', $referrer->id)
+            ->pluck('referred_device_id');
+        $referredDevices = Device::whereIn('id', $referredIds)->get();
+
+        $vipCount = $referredDevices->where('is_vip', true)->count();
+        $normalCount = $referredDevices->where('is_vip', false)->count();
+
+        // Track last claimed milestones (add columns if needed)
+        $lastVipClaim = $referrer->vip_referred_claimed_count ?? 0;
+        $lastNormalClaim = $referrer->normal_referred_claimed_count ?? 0;
+
+        $vipMilestone = floor($vipCount / 5) * 5;
+        $normalMilestone = floor($normalCount / 10) * 10;
+
+        $rewards = [];
+        if ($vipMilestone > $lastVipClaim && $vipMilestone > 0) {
+            $reward = $this->grantReferralReward($referrer, '3months');
+            $referrer->vip_referred_claimed_count = $vipMilestone;
+            $rewards[] = [
+                'type' => 'vip',
+                'milestone' => $vipMilestone,
+                'reward' => $reward
+            ];
+        }
+        if ($normalMilestone > $lastNormalClaim && $normalMilestone > 0) {
+            $reward = $this->grantReferralReward($referrer, '1month');
+            $referrer->normal_referred_claimed_count = $normalMilestone;
+            $rewards[] = [
+                'type' => 'normal',
+                'milestone' => $normalMilestone,
+                'reward' => $reward
+            ];
+        }
+        if (!empty($rewards)) {
+            $referrer->save();
+            return response()->json(['rewards' => $rewards, 'message' => 'Type-based referral rewards granted']);
+        }
+        return response()->json([
+            'error' => 'Not eligible for type-based referral reward yet',
+            'vip_referred' => $vipCount,
+            'normal_referred' => $normalCount,
+            'next_vip_milestone' => $lastVipClaim + 5,
+            'next_normal_milestone' => $lastNormalClaim + 10
+        ], 400);
+    }
+    // ...existing code...
+
+    /**
+     * List all device referrals (admin/global view)
+     */
+    public function getReferrals(Request $request)
+    {
+        $referrals = \App\Models\DeviceReferral::with(['referrer', 'referred'])
+            ->orderBy('referred_at', 'desc')
+            ->paginate(30);
+        return response()->json($referrals);
+    }
+
+    /**
+     * List referrals for a specific device
+     */
+    public function getDeviceReferrals($device_id)
+    {
+        $device = Device::where('device_id', $device_id)->first();
+        if (!$device) {
+            return response()->json(['error' => 'Device not found'], 404);
+        }
+        $referrals = \App\Models\DeviceReferral::with('referred')
+            ->where('referrer_device_id', $device->id)
+            ->orderBy('referred_at', 'desc')
+            ->paginate(20);
+        return response()->json([
+            'device_id' => $device->device_id,
+            'referrals' => $referrals
+        ]);
+    }
+    /**
+     * Get referral stats and rewards for a device
+     */
+    public function referralStats(Request $request)
+    {
+        $device = Device::where('device_id', $request->query('device_id'))->first();
+        if (!$device) {
+            return response()->json(['error' => 'Device not found'], 404);
+        }
+
+        $referrals = \App\Models\DeviceReferral::with('referred')
+            ->where('referrer_device_id', $device->id)
+            ->orderBy('referred_at', 'desc')
+            ->get();
+
+        // Count normal and VIP referrals at the time of referral
+        $normalReferrals = 0;
+        $vipReferrals = 0;
+        $referralHistory = [];
+        foreach ($referrals as $ref) {
+            // Try to determine if referrer was VIP at the time
+            $wasVip = false;
+            if ($device->vip_expires_at && $ref->referred_at <= $device->vip_expires_at) {
+                $wasVip = true;
+            }
+            if ($wasVip) {
+                $vipReferrals++;
+            } else {
+                $normalReferrals++;
+            }
+            $referralHistory[] = [
+                'referred_device_id' => $ref->referred->device_id ?? null,
+                'referred_at' => $ref->referred_at,
+                'referrer_was_vip' => $wasVip,
+            ];
+        }
+
+        $isVip = $device->isVip();
+        $nextThreshold = $isVip ? 5 : 10;
+        $toNextReward = $nextThreshold - (($normalReferrals + $vipReferrals) % $nextThreshold);
+
+        // Get all rewards (subscriptions created with REF- prefix for this device)
+        $rewardHistory = \App\Models\Subscription::where('key', 'like', 'REF-%')
+            ->where('created_at', '>=', now()->subYears(2))
+            ->orderBy('created_at', 'desc')
+            ->get(['key', 'type', 'expires_at', 'created_at']);
+
+        return response()->json([
+            'device_id' => $device->device_id,
+            'is_vip' => $isVip,
+            'total_referrals' => $normalReferrals + $vipReferrals,
+            'normal_user_referrals' => $normalReferrals,
+            'vip_user_referrals' => $vipReferrals,
+            'next_reward_threshold' => $nextThreshold,
+            'to_next_reward' => $toNextReward,
+            'referral_history' => $referralHistory,
+            'reward_history' => $rewardHistory,
+        ]);
+    }
     //
     public function register(Request $request)
     {
@@ -19,7 +166,8 @@ class DeviceController extends Controller
             'device_id' => 'required|string|max:255',
             'platform' => 'required|string|in:android,ios,web,desktop',
             'os_version' => 'nullable|string|max:50',
-            'app_version' => 'nullable|string|max:50'
+            'app_version' => 'nullable|string|max:50',
+            'referrer_device_id' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -62,8 +210,99 @@ class DeviceController extends Controller
             'api_token' => $device->api_token,
             'platform' => $device->platform,
             'is_vip' => false,
-            'vip_expires_at' => null
+            'vip_expires_at' => null,
         ], 201);
+    }
+    /**
+     * Attach a referral to an existing device
+     */
+    public function addReferral(Request $request, $device_id)
+    {
+        $request->validate([
+            'referrer_device_id' => 'required|string|exists:devices,device_id',
+        ]);
+        $device = Device::where('device_id', $device_id)->first();
+        $referrer = Device::where('device_id', $request->referrer_device_id)->first();
+        if (!$device || !$referrer || $referrer->id === $device->id) {
+            return response()->json(['error' => 'Invalid device or referrer'], 400);
+        }
+        $alreadyReferred = \App\Models\DeviceReferral::where('referrer_device_id', $referrer->id)
+            ->where('referred_device_id', $device->id)
+            ->exists();
+        if ($alreadyReferred) {
+            return response()->json(['error' => 'Referral already exists'], 409);
+        }
+        \App\Models\DeviceReferral::create([
+            'referrer_device_id' => $referrer->id,
+            'referred_device_id' => $device->id,
+            'referred_at' => now(),
+        ]);
+        return response()->json(['message' => 'Referral added successfully']);
+    }
+
+    public function claimReferralReward($device_id)
+    {
+        $referrer = Device::where('device_id', $device_id)->first();
+        if (! $referrer) {
+            return response()->json(['error' => 'Device not found'], 404);
+        }
+
+        // total successful referrals
+        $referralCount = DeviceReferral::where('referrer_device_id', $referrer->id)->count();
+
+        // VIPs get rewarded every 5, everyone else every 10
+        $isVip     = $referrer->isVip();
+        $threshold = $isVip ? 5 : 10;
+
+        // how many have we already rewarded up to?
+        $claimedCount = $referrer->referral_claimed_count ?? 0;
+
+        // the next “pay‑out” point
+        $nextMilestone = $claimedCount + $threshold;
+
+        // not there yet?
+        if ($referralCount < $nextMilestone) {
+            return response()->json([
+                'error'          => 'Not eligible for reward yet',
+                'referralsSoFar' => $referralCount,
+                'needForNext'    => $nextMilestone - $referralCount
+            ], 400);
+        }
+
+        // OK, grant the reward
+        $type   = $isVip ? '3months' : '1month';
+        $reward = $this->grantReferralReward($referrer, $type);
+
+        // mark that we've paid out through this milestone
+        $referrer->referral_claimed_count = $nextMilestone;
+        $referrer->save();
+
+        return response()->json([
+            'reward'  => $reward,
+            'message' => "Reward granted for reaching {$nextMilestone} referrals"
+        ]);
+    }
+
+
+    // Helper to grant referral reward
+    protected function grantReferralReward($referrer, $type)
+    {
+        // Generate a unique subscription key
+        $key = 'REF-' . strtoupper(Str::random(10));
+        $expires = $type === '1month' ? now()->addMonth() : now()->addMonths(3);
+        $sub = \App\Models\Subscription::create([
+            'key' => $key,
+            'type' => $type,
+            'expires_at' => $expires,
+            'is_active' => true,
+        ]);
+        // Optionally, assign to referrer device
+        // $referrer->update(['subscription_key' => $key]);
+        return [
+            'subscription_key' => $key,
+            'type' => $type,
+            'expires_at' => $expires,
+        ];
     }
 
 

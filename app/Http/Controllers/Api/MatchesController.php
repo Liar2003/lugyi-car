@@ -159,10 +159,38 @@ class MatchesController extends Controller
 
         return ['m3u8' => null, 'hdM3u8' => null];
     }
+    public function getLiveServersByAdmin(Request $request, int $roomNum)
+    {
+        // VIP check: device_id or api_token required
+
+        $urls = $this->fetchServerURL($roomNum);
+        $servers = [];
+        if ($urls['m3u8']) {
+            $servers[] = [
+                'name' => 'Soco SD',
+                'stream_url' => $urls['m3u8'],
+                'referer' => $this->referer,
+            ];
+        }
+        if ($urls['hdM3u8']) {
+            $servers[] = [
+                'name' => 'Soco HD',
+                'stream_url' => $urls['hdM3u8'],
+                'referer' => $this->referer,
+            ];
+        }
+        return response()->json($servers);
+    }
 
     // New route handler for servers for live matches
     public function getLiveServers(Request $request, int $roomNum)
     {
+        // VIP check: device_id or api_token required
+        $device = $request->device;
+        if (! $device || ! $device->isVip()) {
+            return response()->json(['error' => 'VIP access only'], 403);
+        }
+
         $urls = $this->fetchServerURL($roomNum);
         $servers = [];
         if ($urls['m3u8']) {

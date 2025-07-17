@@ -13,13 +13,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Seed 2 users
+        \App\Models\User::factory(2)->create();
 
-        // User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
-        $this->call(ContentSeeder::class); // Add this line to call your ContentSeeder
- 
+        // Seed 20 devices
+        $this->call(DeviceSeeder::class);
+
+        // Seed 150 contents
+        \App\Models\Content::factory(150)->create();
     }
 }

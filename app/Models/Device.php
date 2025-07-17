@@ -22,13 +22,19 @@ class Device extends Model
         'is_vip',
         'vip_expires_at',
         'subscription_key',
-        'last_active_at'
+        'last_active_at',
+        'referral_claimed_count',
+        'vip_referred_claimed_count',
+        'normal_referred_claimed_count',
     ];
 
     protected $casts = [
         'is_vip' => 'boolean',
         'vip_expires_at' => 'datetime',
-        'last_active_at' => 'datetime'
+        'last_active_at' => 'datetime',
+        'referral_claimed_count' => 'integer',
+        'vip_referred_claimed_count' => 'integer',
+        'normal_referred_claimed_count' => 'integer',
     ];
     protected $hidden = [
         'api_token',

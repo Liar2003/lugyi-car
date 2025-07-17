@@ -23,7 +23,7 @@ use App\Http\Controllers\Api\SuggestionController;
 
 
 //
-Route::get('/matches/{roomNum}/servers', [MatchesController::class, 'getLiveServers']);
+//Route::get('/matches/{roomNum}/servers', [MatchesController::class, 'getLiveServers']);
 Route::get('/matches', [MatchesController::class, 'index']);
 Route::get('/check', [\App\Http\Controllers\API\ServerCheckController::class, 'check']);
 Route::get('/maintenance', [\App\Http\Controllers\API\ServerCheckController::class, 'tempDown']);
@@ -49,7 +49,7 @@ Route::prefix('auth')->group(function () {
     // Protected routes
     Route::middleware([AuthWithToken::class])->group(function () {
         //Third-party API routes
-        Route::get('/matches/{roomNum}/servers', [MatchesController::class, 'getLiveServers']);
+        Route::get('/matches/{roomNum}/servers', [MatchesController::class, 'getLiveServersByAdmin']);
         Route::get('/matches', [MatchesController::class, 'index']);
         //Subscription routes
         Route::post('/create-key', [AdminController::class, 'createSubscriptionKey']);
@@ -102,6 +102,20 @@ Route::middleware([ApiTokenAuth::class, TrackContentView::class])->group(functio
         ->name('contents')->where('id', '[0-9]+');
 });
 Route::middleware([ApiTokenAuth::class])->group(function () {
+    //third party api
+    Route::get('/matches/{roomNum}/servers', [MatchesController::class, 'getLiveServers']);
+
+    //referral system
+    Route::post('/devices/referral', [DeviceController::class, 'handleReferral']);
+    Route::get('/devices/referrals', [DeviceController::class, 'getReferrals']);
+    Route::get('/devices/{device_id}/referrals', [DeviceController::class, 'getDeviceReferrals'])
+        ->where('device_id', '[a-zA-Z0-9_-]+');
+    Route::get('/devices/{device_id}/referral-stats', [DeviceController::class, 'referralStats'])
+        ->where('device_id', '[a-zA-Z0-9_-]+');
+    Route::get('/devices/{device_id}/claim-reward', [DeviceController::class, 'claimReferralReward'])
+        ->where('device_id', '[a-zA-Z0-9_-]+');
+    Route::get('/devices/{device_id}/claim-reward-type', [DeviceController::class, 'claimReferralTypeReward'])
+        ->where('device_id', '[a-zA-Z0-9_-]+');
     //device 
     Route::get('/devices/status', [DeviceController::class, 'status']);
 
