@@ -11,7 +11,23 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class AdminController extends Controller
+
 {
+    public function listContents(Request $request)
+    {
+        $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
+
+        $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
+            ->whereNotIn('category', ['Live', 'Sport']) // Exclude "Live" and "Sport"
+            ->orderBy('created_at', 'desc');
+        if ($showVipOnly) {
+            $query->where('isvip', true);
+        }
+
+        $contents = $query->paginate(15, ['*'], 'page', $request->query('page', 1));
+
+        return response()->json($contents);
+    }
     public function listDevices(Request $request)
     {
         $perPage = $request->query('per_page', 20);
@@ -174,7 +190,7 @@ class AdminController extends Controller
         if (!$subscription) {
             return response()->json(['message' => 'Subscription not found'], 404);
         }
-        return response()->json(["subscription" => $subscription    , 'message' => 'Subscription deactivated successfully']);
+        return response()->json(["subscription" => $subscription, 'message' => 'Subscription deactivated successfully']);
     }
     //
     public function createSubscriptionKey(Request $request)

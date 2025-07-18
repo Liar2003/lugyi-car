@@ -78,7 +78,7 @@ Route::prefix('auth')->group(function () {
         Route::get('/contents/live-sport', [ContentController::class, 'listLiveAndSportContents']);
         Route::put('/contents/{id}', [AdminController::class, 'updateContent']);
         Route::get('/contents/{id}', [AdminController::class, 'getContentDetails'])->where('id', '[0-9]+');
-        Route::get('/contents', [ContentController::class, 'listContents']);
+        Route::get('/contents', [AdminController::class, 'listContents']);
         Route::get('/subscriptions', [AdminController::class, 'listSubscriptionKeys']);
         Route::post('/logout', [AdminAuthController::class, 'logout']);
         Route::post('/logout-all', [AdminAuthController::class, 'logoutAll']);
