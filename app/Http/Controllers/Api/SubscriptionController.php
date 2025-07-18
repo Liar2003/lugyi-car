@@ -49,6 +49,7 @@ class SubscriptionController extends Controller
 
         // Increment key usage
         $subscription->incrementUsage();
+        $device->useSubscription($request->subscription_key);
 
         return response()->json([
             'message' => 'VIP subscription activated!',

@@ -8,6 +8,51 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Device extends Model
 {
+    /**
+     * Log subscription usage and grant reward if milestone reached
+     */
+    public function useSubscription($subscriptionKey)
+    {
+        $history = DeviceSubscriptionHistory::create([
+            'device_id' => $this->id,
+            'subscription_key' => $subscriptionKey,
+            'used_at' => now(),
+        ]);
+        // // Get subscription type
+        // $subscription = $this->subscription;
+        // if (! $subscription || ! $subscription->is_active) {
+        //     return $history;
+        // }
+
+        // $type = $subscription->type;
+        // $milestone = null;
+        // $rewardDays = null;
+        // if ($type === '1month') {
+        //     $milestone = 5;
+        //     $rewardDays = 7; // Example: add 7 days for milestone
+        // } elseif ($type === '3months') {
+        //     $milestone = 20;
+        //     $rewardDays = 30; // Example: add 30 days for milestone
+        // }
+
+        // if ($milestone) {
+        //     // Count unique days used for this subscription key by this device
+        //     $daysUsed = DeviceSubscriptionHistory::where('device_id', $this->id)
+        //         ->where('subscription_key', $subscriptionKey)
+        //         ->selectRaw('DATE(used_at) as day')
+        //         ->groupBy('day')
+        //         ->get()->count();
+
+        //     if ($daysUsed > 0 && $daysUsed % $milestone === 0) {
+        //         // Grant reward: extend subscription
+        //         $subscription->expires_at = $subscription->expires_at->addDays($rewardDays);
+        //         $subscription->save();
+        //         $history->reward_granted = true;
+        //         $history->save();
+        //     }
+        // }
+        return $history;
+    }
     //
     use HasFactory;
 

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Middleware\AuthWithToken;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\DeviceSubscriptionHistoryController;
 use App\Http\Controllers\Api\MatchesController;
 
 /*--------------------------------------------------------------------------
@@ -102,11 +103,15 @@ Route::middleware([ApiTokenAuth::class, TrackContentView::class])->group(functio
         ->name('contents')->where('id', '[0-9]+');
 });
 Route::middleware([ApiTokenAuth::class])->group(function () {
+    //subscription routes
+    Route::get('/subscription-history', [DeviceSubscriptionHistoryController::class, 'history']);
+
+
     //third party api
     Route::get('/matches/{roomNum}/servers', [MatchesController::class, 'getLiveServers']);
 
     //referral system
-    Route::post('/devices/referral', [DeviceController::class, 'handleReferral']);
+    Route::post('/devices/referral', [DeviceController::class, 'addReferral']);
     Route::get('/devices/referrals', [DeviceController::class, 'getReferrals']);
     Route::get('/devices/{device_id}/referrals', [DeviceController::class, 'getDeviceReferrals'])
         ->where('device_id', '[a-zA-Z0-9_-]+');
@@ -116,6 +121,7 @@ Route::middleware([ApiTokenAuth::class])->group(function () {
         ->where('device_id', '[a-zA-Z0-9_-]+');
     Route::get('/devices/{device_id}/claim-reward-type', [DeviceController::class, 'claimReferralTypeReward'])
         ->where('device_id', '[a-zA-Z0-9_-]+');
+    Route::post('/devices/claim-reward', [DeviceSubscriptionHistoryController::class, 'claimRewardBySubscriptionKey']);
     //device 
     Route::get('/devices/status', [DeviceController::class, 'status']);
 

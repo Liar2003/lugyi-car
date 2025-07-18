@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('subscriptions', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
-            $table->enum('type', ['1month', '3months', 'lifetime']);
+            $table->enum('type', ['1month', '3months','5months','8months','1year', 'lifetime']);
             $table->timestamp('expires_at')->nullable();
             $table->boolean('is_active')->default(true);
             $table->unsignedTinyInteger('max_devices')->default(2);

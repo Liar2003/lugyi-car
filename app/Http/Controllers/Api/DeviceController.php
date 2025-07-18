@@ -216,12 +216,12 @@ class DeviceController extends Controller
     /**
      * Attach a referral to an existing device
      */
-    public function addReferral(Request $request, $device_id)
+    public function addReferral(Request $request)
     {
         $request->validate([
             'referrer_device_id' => 'required|string|exists:devices,device_id',
         ]);
-        $device = Device::where('device_id', $device_id)->first();
+        $device = $request->device;
         $referrer = Device::where('device_id', $request->referrer_device_id)->first();
         if (!$device || !$referrer || $referrer->id === $device->id) {
             return response()->json(['error' => 'Invalid device or referrer'], 400);

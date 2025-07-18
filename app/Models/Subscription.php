@@ -43,8 +43,14 @@ class Subscription extends Model
                 return now()->addMonth();
             case '3months':
                 return now()->addMonths(3);
+            case '5months':
+                return now()->addMonths(5);
+            case '8months':
+                return now()->addMonths(8);
+            case '1year':
+                return now()->addYear();
             case 'lifetime':
-                return now()->addYear(3);
+                return now()->addYear(80);
             default:
                 return now()->addMonth();
         }

@@ -143,7 +143,7 @@ class ContentController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->take(8)
                 ->get(),
-            'liveAndsport' => Content::whereIn('category', ['Live', 'Sport'])
+            'liveAndsport' => Content::whereIn('category', ['Football'])
                 ->select(['id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at'])
                 ->latest()
                 ->take(8)

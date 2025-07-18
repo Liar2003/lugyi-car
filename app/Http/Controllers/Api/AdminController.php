@@ -180,7 +180,7 @@ class AdminController extends Controller
     public function createSubscriptionKey(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:1month,3months,lifetime',
+            'type' => 'required|in:1month,3months,5months,8months,1year,lifetime',
             'max_devices' => 'required|integer|min:1|max:5' // Max 5 devices per key
         ]);
 
