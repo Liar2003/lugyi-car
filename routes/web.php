@@ -8,3 +8,6 @@ Route::get('/', function () {
 Route::get('/privacy', function () {
     return view('privacy');
 });
+Route::get('/claim-reward', function () {
+    return view('claim-reward');
+});
