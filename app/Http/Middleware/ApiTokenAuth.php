@@ -27,22 +27,33 @@ class ApiTokenAuth
             ], 401);
         }
 
-        $device = Device::where('api_token', $token)->first();
-        $device->update(['last_active_at' => now()]);
+        try {
+            $device = Device::where('api_token', $token)->first();
+            if (! $device) {
+                return response()->json([
+                    'error' => 'Invalid API token',
+                    'docs' => 'Include Authorization: Bearer <token> or ?api_token=<token>'
+                ], 401);
+            }
 
-        if (!$device) {
-            return response()->json(['error' => 'Invalid API token'], 401);
+            // Update last_active_at
+            $device->update(['last_active_at' => now()]);
+
+            // Check if VIP has expired
+            if ($device->is_vip && $device->vip_expires_at && now()->gt($device->vip_expires_at)) {
+                $device->update([
+                    'is_vip' => false,
+                    'vip_expires_at' => null
+                ]);
+            }
+
+            $request->merge(['device' => $device]);
+            return $next($request);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Server error',
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        // Check if VIP has expired
-        if ($device->is_vip && $device->vip_expires_at && now()->gt($device->vip_expires_at)) {
-            $device->update(['is_vip' => false]);
-            $device->update(['vip_expires_at' => null]);
-        }
-
-
-        $request->merge(['device' => $device]);
-
-        return $next($request);
     }
 }
