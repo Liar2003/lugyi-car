@@ -314,7 +314,7 @@ class ContentController extends Controller
         $showVipOnly = filter_var($request->query('show_vip', false), FILTER_VALIDATE_BOOLEAN);
 
         $query = Content::select('id', 'title', 'profileImg', 'coverImg', 'tags', 'content', 'category', 'duration', 'isvip', 'created_at')
-            ->whereNotIn('category', ['Live', 'Sport']) // Exclude "Live" and "Sport"
+            ->whereNotIn('category', ['Live', 'Sport', 'Football']) // Exclude "Live" and "Sport"
             ->orderBy('created_at', 'desc');
 
         if ($showVipOnly) {
