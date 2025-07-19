@@ -22,7 +22,7 @@ class ServerCheckController extends Controller
         // You can also add other health checks here (DB, cache, etc.)
         return response()->json([
             'status'    => 'ok',
-            'key'=>'xobr3XCs6XewOK4RSRuXmhkJ1jntToD17daZSk3CHpnu3Ybzag3vd7nOMAhfiitSZbbjxmmQz0MQVqNyekjLhA====',
+            'key'=>'xobr3XCs6XewOK4RSRuXmhkJ1jntToD17daZSk3CHpnu3Ybzag3vd7nOMAhfiitSZbbjxmmQz0MQVqNyekjLhA==',
             'timestamp' => now()->toDateTimeString(),
         ], 200);
     }
