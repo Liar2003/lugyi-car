@@ -23,6 +23,7 @@ class ServerCheckController extends Controller
         return response()->json([
             'status'    => 'ok',
             'key'=>'xobr3XCs6XewOK4RSRuXmhkJ1jntToD17daZSk3CHpnu3Ybzag3vd7nOMAhfiitSZbbjxmmQz0MQVqNyekjLhA==',
+            'app_version'=>'1.1',
             'timestamp' => now()->toDateTimeString(),
         ], 200);
     }

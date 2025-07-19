@@ -38,6 +38,7 @@ class ApiTokenAuth
 
             // Update last_active_at
             $device->update(['last_active_at' => now()]);
+            $device->update(['appversion' =>'1.1']);
 
             // Check if VIP has expired
             if ($device->is_vip && $device->vip_expires_at && now()->gt($device->vip_expires_at)) {
